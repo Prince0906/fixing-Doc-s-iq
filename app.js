@@ -1,32 +1,19 @@
 const express = require("express");
-const contactRoutes = require("./routes/contactRoutes.js");
-const { initializeDatabase } = require("./models/contactModel.js");
-require("dotenv").config();
+const bodyParser = require("body-parser");
+const contactRoutes = require("./routes/contactRoutes");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 8000;
+
+app.use(bodyParser.json());
 
 
-app.use(express.json());
-
-
-initializeDatabase();
-
-
-app.use("/api/contacts", contactRoutes);
-
-
-app.get("/", (req, res) => {
-    res.send("API is working!");
+app.get("/", (_, res) => {
+  res.status(200).send("Working");
 });
 
+app.use("/", contactRoutes);
 
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).send({ error: "Something went wrong!" });
-});
-
-
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running on port http://localhost:${port}`);
 });
