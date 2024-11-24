@@ -1,27 +1,47 @@
-const { getAllContacts, createContact } = require("../models/contactModel.js");
-
-const getContacts = async (req, res) => {
-    try {
-        const [rows] = await getAllContacts();
-        res.status(200).json(rows);
-    } catch (error) {
-        console.error("Error fetching contacts:", error.message);
-        res.status(500).json({ error: "Internal Server Error" });
-    }
-};
-
-const addContact = async (req, res) => {
-    try {
-        const contactData = req.body;
-        await createContact(contactData);
-        res.status(201).json({ message: "Contact created successfully!" });
-    } catch (error) {
-        console.error("Error adding contact:", error.message);
-        res.status(500).json({ error: "Internal Server Error" });
-    }
-};
-
-module.exports = {
-    getContacts,
+const {getPrimaryViaEmail,
+    getPrimaryViaPhoneNumber,
+    mergePrimaries,
     addContact,
+    getLinkedContacts
+} = require("../models/contactModel");
+
+
+const contactInserter = async (contact) => {
+    const emailLinkedContact = contact.email ? await getPrimaryViaEmail(contact.email) : null;
+
+    const phoneNumberLinkedContact = contact.phoneNumber ? await getPrimaryViaPhoneNumber(contact.phoneNumber) : null;
+
+    // if only email or phoneNumber provided and there linked contact is also there
+    if ((contact.email && emailLinkedContact && !contact.phoneNumber) || 
+    (contact.phoneNumber && phoneNumberLinkedContact && !contact.email)) {
+        return;
+    }
+
+    // if both things provided and id is matching
+    if (contact.email && emailLinkedContact && contact.phoneNumber && phoneNumberLinkedContact) {
+        if (emailLinkedContact.id === phoneNumberLinkedContact.id) {
+            return;
+    }
+
+    // merge case
+    console.log(emailLinkedContact.createdAt)
+    if (emailLinkedContact.createdAt < phoneNumberLinkedContact.createdAt) {
+        await mergePrimaries(emailLinkedContact.id,phoneNumberLinkedContact.id);
+        return;
+    }
+    await mergePrimaries(phoneNumberLinkedContact.id,emailLinkedContact.id);
+    return;
+    }
+
+    await addContact({
+        ...contact,
+        linkedId: emailLinkedContact?.id || phoneNumberLinkedContact?.id,
+    });
 };
+
+const contactReader = async (contact) => {
+    return await getLinkedContacts(contact);
+};
+  
+module.exports = { contactInserter,contactReader };
+  
